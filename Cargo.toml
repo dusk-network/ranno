@@ -1,0 +1,19 @@
+[package]
+name = "ranno"
+description = "Annotations over recursive data structures"
+categories = ["data-structures", "no-std"]
+keywords = ["recursion", "annotation", "data", "structure"]
+
+repository = "https://github.com/dusk-network/ranno"
+authors = ["Eduardo Leegwater Simões <eduardo@dusk.network>"]
+version = "0.1.0"
+
+edition = "2021"
+license = "MPL-2.0"
+
+exclude = [".github/*", ".gitignore"]
+
+[features]
+default = ["std"]
+std = ["alloc"]
+alloc = []
