@@ -14,7 +14,8 @@ structure with some extra information. Implementing it for a type allows that
 type to also be an annotation over a reference to a child.
 
 The [`Annotated`] type is provided to compute and store the annotation over a
-reference to a child.
+reference to a child. Annotations are computed lazily, triggered by when a
+reference to them is asked for.
 
 # Example
 ```
@@ -119,14 +120,20 @@ assert_eq!(Cardinality::from_child(&list), Cardinality(1));
 #![deny(clippy::all)]
 #![cfg_attr(feature = "alloc", deny(missing_docs))]
 
+use core::cell::{Ref, RefCell};
 use core::cmp::Ordering;
 use core::ops::{Deref, DerefMut};
 
 /// A child annotated with some metadata.
+///
+/// Annotations are lazily evaluated, with computation triggered when a
+/// reference to them is asked for using [`anno`].
+///
+/// [`anno`]: Annotated::anno
 #[derive(Debug)]
 pub struct Annotated<T, A> {
     child: T,
-    anno: A,
+    anno: RefCell<Option<A>>,
 }
 
 impl<T, A> Annotated<T, A> {
@@ -135,14 +142,10 @@ impl<T, A> Annotated<T, A> {
         &self.child
     }
 
-    /// Returns the annotated child.
-    pub fn anno(&self) -> &A {
-        &self.anno
-    }
-
-    /// Consume the structure and return the child and the annotation.
-    pub fn split(self) -> (T, A) {
-        (self.child, self.anno)
+    /// Consume the structure and return the child and the annotation, if it
+    /// was already computed.
+    pub fn split(self) -> (T, Option<A>) {
+        (self.child, self.anno.take())
     }
 }
 
@@ -153,14 +156,26 @@ where
     /// Create a new annotation over a child.
     pub fn new(child: T) -> Self {
         Self {
-            anno: A::from_child(&child),
+            anno: RefCell::new(None),
             child,
         }
     }
 
+    /// Returns the annotated child.
+    pub fn anno(&self) -> Ref<A> {
+        // lazily compute the annotation when reference is asked for
+        if self.anno.borrow().is_none() {
+            let anno = A::from_child(&self.child);
+            self.anno.replace(Some(anno));
+        }
+
+        // unwrapping is ok since we're sure the option is initialized
+        Ref::map(self.anno.borrow(), |elem| elem.as_ref().unwrap())
+    }
+
     /// Returns a mutable reference to the annotated child.
-    pub fn child_mut(&mut self) -> AnnotatedRefMut<'_, T, A> {
-        AnnotatedRefMut { anno: self }
+    pub fn child_mut(&mut self) -> AnnotatedRefMut<T, A> {
+        AnnotatedRefMut { annotated: self }
     }
 }
 
@@ -226,23 +241,13 @@ where
 
 /// A mutable reference to an annotated child.
 ///
-/// This allows for mutation of the child, and subsequent re-computation of
-/// the annotation when dropped.
+/// If the value is mutably de-referenced, the annotation is invalidated and
+/// will need to be re-computed.
 pub struct AnnotatedRefMut<'a, T, A>
 where
     A: Annotation<T>,
 {
-    anno: &'a mut Annotated<T, A>,
-}
-
-impl<'a, T, A> Drop for AnnotatedRefMut<'a, T, A>
-where
-    A: Annotation<T>,
-{
-    fn drop(&mut self) {
-        let anno = A::from_child(&self.anno.child);
-        self.anno.anno = anno;
-    }
+    annotated: &'a mut Annotated<T, A>,
 }
 
 impl<'a, T, A> Deref for AnnotatedRefMut<'a, T, A>
@@ -252,7 +257,7 @@ where
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        &self.anno.child
+        &self.annotated.child
     }
 }
 
@@ -261,7 +266,10 @@ where
     A: Annotation<T>,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.anno.child
+        // when de-referencing mutably, invalidate the annotation
+        self.annotated.anno = RefCell::new(None);
+
+        &mut self.annotated.child
     }
 }
 
