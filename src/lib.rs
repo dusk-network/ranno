@@ -243,6 +243,7 @@ where
 ///
 /// If the value is mutably de-referenced, the annotation is invalidated and
 /// will need to be re-computed.
+#[derive(Debug)]
 pub struct AnnotatedRefMut<'a, T, A> {
     annotated: &'a mut Annotated<T, A>,
 }
