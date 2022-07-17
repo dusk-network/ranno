@@ -116,7 +116,7 @@ assert_eq!(Cardinality::from_child(&list), Cardinality(1));
 ```
 "##
 )]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 #![deny(clippy::all)]
 #![cfg_attr(feature = "alloc", deny(missing_docs))]
 
@@ -294,7 +294,9 @@ mod impl_alloc {
     use super::Annotation;
 
     extern crate alloc;
+
     use alloc::rc::Rc;
+    use alloc::sync::Arc;
 
     impl<T, A> Annotation<Rc<T>> for A
     where
@@ -304,13 +306,6 @@ mod impl_alloc {
             A::from_child(t.as_ref())
         }
     }
-}
-
-#[cfg(feature = "std")]
-mod impl_std {
-    use super::Annotation;
-
-    use std::sync::Arc;
 
     impl<T, A> Annotation<Arc<T>> for A
     where
