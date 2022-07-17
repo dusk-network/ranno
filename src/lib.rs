@@ -243,17 +243,11 @@ where
 ///
 /// If the value is mutably de-referenced, the annotation is invalidated and
 /// will need to be re-computed.
-pub struct AnnotatedRefMut<'a, T, A>
-where
-    A: Annotation<T>,
-{
+pub struct AnnotatedRefMut<'a, T, A> {
     annotated: &'a mut Annotated<T, A>,
 }
 
-impl<'a, T, A> Deref for AnnotatedRefMut<'a, T, A>
-where
-    A: Annotation<T>,
-{
+impl<'a, T, A> Deref for AnnotatedRefMut<'a, T, A> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -261,10 +255,7 @@ where
     }
 }
 
-impl<'a, T, A> DerefMut for AnnotatedRefMut<'a, T, A>
-where
-    A: Annotation<T>,
-{
+impl<'a, T, A> DerefMut for AnnotatedRefMut<'a, T, A> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         // when de-referencing mutably, invalidate the annotation
         self.annotated.anno = RefCell::new(None);
