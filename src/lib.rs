@@ -28,74 +28,64 @@ use ranno::{Annotated, Annotation};
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 struct Cardinality(usize);
 
-impl<C> Annotation<LinkedList<C, Cardinality>> for Cardinality {
-    fn from_child(list: &LinkedList<C, Cardinality>) -> Self {
-        let elem_card = match list.elem {
-            None => 0,
-            Some(_) => 1,
-        };
-
-        let next_card = match list.next {
-            None => 0,
-            Some(ref annotated) => annotated.anno().0,
+impl<T> Annotation<LinkedList<T, Cardinality>> for Cardinality {
+    fn from_child(list: &LinkedList<T, Cardinality>) -> Self {
+        let c = match list {
+            LinkedList::Empty => 0,
+            LinkedList::Node { next, .. } => 1 + next.anno().0,
         };
 
         // the cardinality of a linked list is just the cardinality of the
         // next element added to the current one
-        Self(elem_card + next_card)
+        Self(c)
     }
 }
 
-struct LinkedList<C, A> {
-    elem: Option<C>,
-    // placing a reference type wrapped by Annotated is the easiest way to
-    // keep annotations with your data.
-    next: Option<Annotated<Rc<LinkedList<C, A>>, A>>,
+enum LinkedList<T, A> {
+    Empty,
+    Node {
+        elem: T,
+        // the cardinality of a linked list is just the cardinality of the
+        // next element added to the current one
+        next: Annotated<Rc<LinkedList<T, A>>, A>,
+    },
 }
 
-impl<C, A> LinkedList<C, A>
+impl<T, A> LinkedList<T, A>
 where
-    A: Annotation<LinkedList<C, A>>,
+    A: Annotation<LinkedList<T, A>>,
 {
     fn new() -> Self {
-        Self {
-            elem: None,
-            next: None,
-        }
+        Self::Empty
     }
 
-    fn push(&mut self, data: C) {
-        if self.elem.is_none() {
-            self.elem = Some(data);
-            return;
-        }
+    fn push(&mut self, elem: T) {
+        let mut next = Self::Empty;
+        mem::swap(&mut next, self);
 
-        let mut new_list = LinkedList {
-            elem: Some(data),
-            next: None,
-        };
-        mem::swap(&mut new_list, self);
-
-        let anno = Annotated::new(Rc::new(new_list));
-        self.next = Some(anno);
+        let next = Annotated::new(Rc::new(next));
+        *self = Self::Node { elem, next };
     }
 
-    fn pop(&mut self) -> Option<C> {
-        if self.next.is_none() {
-            return self.elem.take();
-        }
+    fn pop(&mut self) -> Option<T> {
+        let mut node = Self::Empty;
+        mem::swap(&mut node, self);
 
-        let anno = self.next.take()?;
-        let (child, _) = anno.split();
-
-        match Rc::try_unwrap(child) {
-            Ok(mut list) => {
-                mem::swap(&mut list, self);
-                Some(list.elem.unwrap())
-            }
-            Err(link) => {
-                self.next = Some(Annotated::new(link));
-                None
+        match node {
+            LinkedList::Empty => None,
+            LinkedList::Node { elem, next } => {
+                let (next, _) = next.split();
+                match Rc::try_unwrap(next) {
+                    Ok(list) => {
+                        *self = list;
+                        Some(elem)
+                    }
+                    Err(next) => {
+                        let next = Annotated::new(next);
+                        *self = Self::Node { elem, next };
+                        None
+                    }
+                }
             }
         }
     }
