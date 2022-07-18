@@ -28,8 +28,8 @@ use ranno::{Annotated, Annotation};
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 struct Cardinality(usize);
 
-impl<T> Annotation<LinkedList<T, Cardinality>> for Cardinality {
-    fn from_child(list: &LinkedList<T, Cardinality>) -> Self {
+impl<C> Annotation<LinkedList<C, Cardinality>> for Cardinality {
+    fn from_child(list: &LinkedList<C, Cardinality>) -> Self {
         let elem_card = match list.elem {
             None => 0,
             Some(_) => 1,
@@ -46,16 +46,16 @@ impl<T> Annotation<LinkedList<T, Cardinality>> for Cardinality {
     }
 }
 
-struct LinkedList<T, A> {
-    elem: Option<T>,
+struct LinkedList<C, A> {
+    elem: Option<C>,
     // placing a reference type wrapped by Annotated is the easiest way to
     // keep annotations with your data.
-    next: Option<Annotated<Rc<LinkedList<T, A>>, A>>,
+    next: Option<Annotated<Rc<LinkedList<C, A>>, A>>,
 }
 
-impl<T, A> LinkedList<T, A>
+impl<C, A> LinkedList<C, A>
 where
-    A: Annotation<LinkedList<T, A>>,
+    A: Annotation<LinkedList<C, A>>,
 {
     fn new() -> Self {
         Self {
@@ -64,7 +64,7 @@ where
         }
     }
 
-    fn push(&mut self, data: T) {
+    fn push(&mut self, data: C) {
         if self.elem.is_none() {
             self.elem = Some(data);
             return;
@@ -80,7 +80,7 @@ where
         self.next = Some(anno);
     }
 
-    fn pop(&mut self) -> Option<T> {
+    fn pop(&mut self) -> Option<C> {
         if self.next.is_none() {
             return self.elem.take();
         }
@@ -131,30 +131,30 @@ use core::ops::{Deref, DerefMut};
 ///
 /// [`anno`]: Annotated::anno
 #[derive(Debug)]
-pub struct Annotated<T, A> {
-    child: T,
+pub struct Annotated<C, A> {
+    child: C,
     anno: RefCell<Option<A>>,
 }
 
-impl<T, A> Annotated<T, A> {
+impl<C, A> Annotated<C, A> {
     /// Returns the annotation over the child.
-    pub fn child(&self) -> &T {
+    pub fn child(&self) -> &C {
         &self.child
     }
 
     /// Consume the structure and return the child and the annotation, if it
     /// was already computed.
-    pub fn split(self) -> (T, Option<A>) {
+    pub fn split(self) -> (C, Option<A>) {
         (self.child, self.anno.take())
     }
 }
 
-impl<T, A> Annotated<T, A>
+impl<C, A> Annotated<C, A>
 where
-    A: Annotation<T>,
+    A: Annotation<C>,
 {
     /// Create a new annotation over a child.
-    pub fn new(child: T) -> Self {
+    pub fn new(child: C) -> Self {
         Self {
             anno: RefCell::new(None),
             child,
@@ -174,26 +174,26 @@ where
     }
 
     /// Returns a mutable reference to the annotated child.
-    pub fn child_mut(&mut self) -> AnnotatedRefMut<T, A> {
+    pub fn child_mut(&mut self) -> AnnotatedRefMut<C, A> {
         AnnotatedRefMut { annotated: self }
     }
 }
 
-impl<T, A> Default for Annotated<T, A>
+impl<C, A> Default for Annotated<C, A>
 where
-    T: Default,
-    A: Annotation<T>,
+    C: Default,
+    A: Annotation<C>,
 {
     fn default() -> Self {
-        let elem = T::default();
+        let elem = C::default();
         Self::new(elem)
     }
 }
 
-impl<T, A> Clone for Annotated<T, A>
+impl<C, A> Clone for Annotated<C, A>
 where
-    T: Clone,
-    A: Annotation<T>,
+    C: Clone,
+    A: Annotation<C>,
 {
     fn clone(&self) -> Self {
         let child = self.child.clone();
@@ -201,40 +201,40 @@ where
     }
 }
 
-impl<T, A> PartialEq for Annotated<T, A>
+impl<C, A> PartialEq for Annotated<C, A>
 where
-    T: PartialEq,
+    C: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
         PartialEq::eq(&self.child, &other.child)
     }
 }
 
-impl<T, A> Eq for Annotated<T, A> where T: PartialEq + Eq {}
+impl<C, A> Eq for Annotated<C, A> where C: PartialEq + Eq {}
 
-impl<T, A> PartialOrd for Annotated<T, A>
+impl<C, A> PartialOrd for Annotated<C, A>
 where
-    T: PartialOrd,
+    C: PartialOrd,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         PartialOrd::partial_cmp(&self.child, &other.child)
     }
 }
 
-impl<T, A> Ord for Annotated<T, A>
+impl<C, A> Ord for Annotated<C, A>
 where
-    T: PartialOrd + Ord,
+    C: PartialOrd + Ord,
 {
     fn cmp(&self, other: &Self) -> Ordering {
         Ord::cmp(&self.child, &other.child)
     }
 }
 
-impl<T, A> From<T> for Annotated<T, A>
+impl<C, A> From<C> for Annotated<C, A>
 where
-    A: Annotation<T>,
+    A: Annotation<C>,
 {
-    fn from(elem: T) -> Self {
+    fn from(elem: C) -> Self {
         Self::new(elem)
     }
 }
@@ -244,19 +244,19 @@ where
 /// If the value is mutably de-referenced, the annotation is invalidated and
 /// will need to be re-computed.
 #[derive(Debug)]
-pub struct AnnotatedRefMut<'a, T, A> {
-    annotated: &'a mut Annotated<T, A>,
+pub struct AnnotatedRefMut<'a, C, A> {
+    annotated: &'a mut Annotated<C, A>,
 }
 
-impl<'a, T, A> Deref for AnnotatedRefMut<'a, T, A> {
-    type Target = T;
+impl<'a, C, A> Deref for AnnotatedRefMut<'a, C, A> {
+    type Target = C;
 
     fn deref(&self) -> &Self::Target {
         &self.annotated.child
     }
 }
 
-impl<'a, T, A> DerefMut for AnnotatedRefMut<'a, T, A> {
+impl<'a, C, A> DerefMut for AnnotatedRefMut<'a, C, A> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         // when de-referencing mutably, invalidate the annotation
         self.annotated.anno = RefCell::new(None);
@@ -266,25 +266,25 @@ impl<'a, T, A> DerefMut for AnnotatedRefMut<'a, T, A> {
 }
 
 /// Annotation over a child.
-pub trait Annotation<T> {
+pub trait Annotation<C> {
     /// Compute the annotation from the child.
-    fn from_child(t: &T) -> Self;
+    fn from_child(t: &C) -> Self;
 }
 
-impl<'a, T, A> Annotation<&'a T> for A
+impl<'a, C, A> Annotation<&'a C> for A
 where
-    A: Annotation<T>,
+    A: Annotation<C>,
 {
-    fn from_child(t: &&'a T) -> Self {
+    fn from_child(t: &&'a C) -> Self {
         A::from_child(t)
     }
 }
 
-impl<'a, T, A> Annotation<&'a mut T> for A
+impl<'a, C, A> Annotation<&'a mut C> for A
 where
-    A: Annotation<T>,
+    A: Annotation<C>,
 {
-    fn from_child(t: &&'a mut T) -> Self {
+    fn from_child(t: &&'a mut C) -> Self {
         A::from_child(t)
     }
 }
@@ -299,29 +299,29 @@ mod impl_alloc {
     use alloc::rc::Rc;
     use alloc::sync::Arc;
 
-    impl<T, A> Annotation<Rc<T>> for A
+    impl<C, A> Annotation<Rc<C>> for A
     where
-        A: Annotation<T>,
+        A: Annotation<C>,
     {
-        fn from_child(t: &Rc<T>) -> Self {
+        fn from_child(t: &Rc<C>) -> Self {
             A::from_child(t.as_ref())
         }
     }
 
-    impl<T, A> Annotation<Arc<T>> for A
+    impl<C, A> Annotation<Arc<C>> for A
     where
-        A: Annotation<T>,
+        A: Annotation<C>,
     {
-        fn from_child(t: &Arc<T>) -> Self {
+        fn from_child(t: &Arc<C>) -> Self {
             A::from_child(t.as_ref())
         }
     }
 
-    impl<T, A> Annotation<Box<T>> for A
+    impl<C, A> Annotation<Box<C>> for A
     where
-        A: Annotation<T>,
+        A: Annotation<C>,
     {
-        fn from_child(t: &Box<T>) -> Self {
+        fn from_child(t: &Box<C>) -> Self {
             A::from_child(t.as_ref())
         }
     }
