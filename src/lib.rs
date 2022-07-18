@@ -295,6 +295,7 @@ mod impl_alloc {
 
     extern crate alloc;
 
+    use alloc::boxed::Box;
     use alloc::rc::Rc;
     use alloc::sync::Arc;
 
@@ -312,6 +313,15 @@ mod impl_alloc {
         A: Annotation<T>,
     {
         fn from_child(t: &Arc<T>) -> Self {
+            A::from_child(t.as_ref())
+        }
+    }
+
+    impl<T, A> Annotation<Box<T>> for A
+    where
+        A: Annotation<T>,
+    {
+        fn from_child(t: &Box<T>) -> Self {
             A::from_child(t.as_ref())
         }
     }
