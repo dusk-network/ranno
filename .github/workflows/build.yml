@@ -12,12 +12,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Install latest nightly toolchain
+      - name: Install latest stable toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
-          override: true
+          toolchain: stable
       - name: Install cargo-dusk-analyzer
         uses: actions-rs/cargo@v1
         with:
@@ -53,7 +52,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: nightly
           override: true
       - run: rustup component add rustfmt
       - name: Run `cargo fmt`
@@ -72,7 +71,6 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
-          override: true
       - run: rustup component add clippy
       - name: Run `cargo clippy`
         uses: actions-rs/cargo@v1
